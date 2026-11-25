@@ -1,0 +1,67 @@
+@baseUrl = http://localhost:5169
+
+@adminAccess = {{loginAdmin.response.body.accessToken}}
+@adminRefresh = {{loginAdmin.response.body.refreshToken}}
+@userAccess = {{loginUser.response.body.accessToken}}
+
+### 1. Логін як admin (UserId = 1)
+# @name loginAdmin
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+### 2. Створити нотатку від імені admin (201 Created)
+POST {{baseUrl}}/notes
+Authorization: Bearer {{adminAccess}}
+Content-Type: application/json
+
+{
+  "title": "Секрет адміна",
+  "content": "Тільки для моїх очей"
+}
+
+### 3. Отримати свої нотатки (200 OK)
+GET {{baseUrl}}/notes
+Authorization: Bearer {{adminAccess}}
+
+### 4. Спроба зайти без токена (401 Unauthorized)
+GET {{baseUrl}}/notes
+
+### 5. Логін як інший користувач user (UserId = 2)
+# @name loginUser
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "username": "user",
+  "password": "user123"
+}
+
+### 6. Спроба user прочитати чужу нотатку ID=1 (403 Forbidden)
+GET {{baseUrl}}/notes/1
+Authorization: Bearer {{userAccess}}
+
+### 7. Спроба user видалити чужу нотатку ID=1 (403 Forbidden)
+DELETE {{baseUrl}}/notes/1
+Authorization: Bearer {{userAccess}}
+
+### 8. Ротація токенів для admin (200 OK + нова пара)
+# @name refreshAdmin
+POST {{baseUrl}}/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{adminRefresh}}"
+}
+
+### 9. Повторне використання СТАРОГО refreshToken (401 Unauthorized)
+POST {{baseUrl}}/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{adminRefresh}}"
+}
