@@ -3,24 +3,19 @@ using System.Security.Claims;
 using System.Text;
 using AspNetJWTAuth.DTOS;
 using AspNetJWTAuth.Models;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace AspNetJWTAuth.Services;
 
-public class JwtService(IConfiguration configuration)
+public class JwtService(IOptions<JwtSettings> options)
 {
+    private readonly JwtSettings _jwtSettings = options.Value;
     private readonly List<RefreshTokenItem> _refreshTokens = [];
 
     public TokenPairResponse GenerateTokenPair(int userId)
     {
-        var jwtSettings = configuration.GetSection("JwtSettings");
-        var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
-        var issuer = jwtSettings["Issuer"] ?? "AspNetJWTAuth";
-        var audience = jwtSettings["Audience"] ?? "AspNetJWTAuth.Users";
-        var expirationMinutes = jwtSettings.GetValue<int>("AccessTokenExpirationMinutes", 2);
-        var refreshDays = jwtSettings.GetValue<int>("RefreshTokenExpirationDays", 7);
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
@@ -30,10 +25,10 @@ public class JwtService(IConfiguration configuration)
         };
 
         var token = new JwtSecurityToken(
-            issuer: issuer,
-            audience: audience,
+            issuer: _jwtSettings.Issuer,
+            audience: _jwtSettings.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expirationMinutes),
+            expires: DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
             signingCredentials: credentials
         );
 
@@ -43,7 +38,7 @@ public class JwtService(IConfiguration configuration)
         _refreshTokens.Add(new RefreshTokenItem(
             refreshToken,
             userId,
-            DateTime.UtcNow.AddDays(refreshDays)
+            DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
         ));
 
         return new TokenPairResponse(accessToken, refreshToken);
